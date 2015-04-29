@@ -1,0 +1,12 @@
+{application, watchbin,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { watchbin_app, []}},
+  {env, []}
+ ]}.
