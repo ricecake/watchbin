@@ -8,6 +8,8 @@
 
 -export([start_link/0]).
 
+-export([new/2, destroy/1]).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
@@ -22,6 +24,12 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
+new(BucketSize, Callback) when is_integer(BucketSize), is_function(Callback) ->
+	gen_server:call(?SERVER, {create, BucketSize, Callback}).
+
+destroy(Pid) -> 
+	gen_server:call(?SERVER, {destroy, Pid}).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
@@ -29,8 +37,9 @@ start_link() ->
 init(Args) ->
     {ok, Args}.
 
-handle_call(_Request, _From, State) ->
-    {reply, ok, State}.
+handle_call({create, BucketSize, Callback}, _From, State) ->
+	NewBin = watchbin_worker_sup:create(BucketSize, Callback),
+	{reply, NewBin, State}.
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
