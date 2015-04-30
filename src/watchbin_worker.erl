@@ -8,7 +8,7 @@
 
 -export([start_link/2]).
 
--export([start_timer/4]).
+-export([start_timer/4, stop_timer/2]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -33,6 +33,9 @@ start_link(BucketSize, Callback) ->
 start_timer(Worker, Interval, Data, Opts) ->
 	gen_server:call(Worker, {add, Interval, Data, Opts}).
 
+stop_timer(Worker, TimerId) ->
+	gen_server:call(Worker, {remove, TimerId}).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
@@ -40,6 +43,8 @@ start_timer(Worker, Interval, Data, Opts) ->
 init(Args) ->
     {ok, Args}.
 
+handle_call({remove, TimerId}, _From, State) ->
+	{reply, ok, State#watchbin{data=maps:remove(TimerId, State#watchbin.data)}};
 handle_call({add, Interval, Data, Opts}, _From, #watchbin{container=Map, width=BucketSize, counter=ID, data=Jobs} = State) ->
 	Jitter = proplists:get_bool(jitter, Opts),
 	WaitTime = if
