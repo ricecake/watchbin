@@ -21,7 +21,7 @@
 %% Record Definitions
 %% ------------------------------------------------------------------
 
--record(watchbin, {width, callback, container=#{}}).
+-record(watchbin, {width, callback, container=#{}, counter=0, data=#{}}).
 
 %% ------------------------------------------------------------------
 %% API Function Definitions
@@ -40,22 +40,25 @@ start_timer(Worker, Interval, Data, Opts) ->
 init(Args) ->
     {ok, Args}.
 
-handle_call({add, Interval, Data, Opts}, _From, #watchbin{container=Map, width=BucketSize} = State) ->
+handle_call({add, Interval, Data, Opts}, _From, #watchbin{container=Map, width=BucketSize, counter=ID, data=Jobs} = State) ->
 	Jitter = proplists:get_bool(jitter, Opts),
 	WaitTime = if
 		Jitter -> random:uniform(Interval);
 		not Jitter -> Interval
 	end,
-	NewMap = add(Map, BucketSize, WaitTime, {Interval, Data}),
-	{reply, ok, State#watchbin{container=NewMap}}.
+	NewJobs = maps:put(ID, {Interval, Data, Opts}, Jobs),
+	NewMap = add(Map, BucketSize, WaitTime, ID),
+	{reply, {ok, {watchbin_tref, ID}}, State#watchbin{container=NewMap, counter=ID+1, data=NewJobs}}.
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-handle_info({tick, Timeout}, #watchbin{container=Map, width=BucketSize, callback=CallBack} = State) ->
-	NewMap = lists:foldl(fun({Int, Data} = Value, OldMap) ->
-		CallBack(Data),
-		add(OldMap, BucketSize, Int, Value)
+handle_info({tick, Timeout}, #watchbin{container=Map, width=BucketSize, callback=CallBack, data=Jobs} = State) ->
+	NewMap = lists:foldl(fun(ID, OldMap) ->
+		case maps:find(ID, Jobs) of
+			{ok, Details} -> process(CallBack, Details, OldMap, BucketSize, ID);
+			error         -> OldMap
+		end
 	end, maps:remove(Timeout, Map), maps:get(Timeout, Map)),
 	{noreply, State#watchbin{container=NewMap}}.
 
@@ -79,6 +82,15 @@ add(Map, BucketSize, Delay, Data) ->
 					[Data]
 	end,
 	maps:put(Timeout, NewValue, Map).
+
+process(Callback, {Interval, Data, Options}, Map, Width, Id) ->
+	OneTime = proplists:get_bool(once, Options),
+	if
+		OneTime -> Map;
+		not OneTime ->
+			Callback(Data),
+			add(Map, Width, Interval, Id)
+	end.
 
 timestamp() -> 
 	{Mega, Secs, Micro} = os:timestamp(),
