@@ -8,7 +8,7 @@
 
 -export([start_link/2]).
 
--export([start_timer/4, stop_timer/2]).
+-export([start_timer/4, stop_timer/2, destroy/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -36,6 +36,9 @@ start_timer(Worker, Interval, Data, Opts) ->
 stop_timer(Worker, TimerId) ->
 	gen_server:call(Worker, {remove, TimerId}).
 
+destroy(Worker) ->
+	gen_server:call(Worker, destroy).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
@@ -43,6 +46,8 @@ stop_timer(Worker, TimerId) ->
 init(Args) ->
     {ok, Args}.
 
+handle_call(destroy, _From, State) ->
+	{stop, normal, ok, State};
 handle_call({remove, TimerId}, _From, State) ->
 	{reply, ok, State#watchbin{data=maps:remove(TimerId, State#watchbin.data)}};
 handle_call({add, Interval, Data, Opts}, _From, #watchbin{container=Map, width=BucketSize, counter=ID, data=Jobs} = State) ->

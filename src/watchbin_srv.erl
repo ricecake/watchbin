@@ -37,6 +37,9 @@ destroy(Pid) ->
 init(Args) ->
     {ok, Args}.
 
+handle_call({destroy, Pid}, _From, State) ->
+	ok = watchbin_worker:destroy(Pid),
+	{reply, ok, State};
 handle_call({create, BucketSize, Callback}, _From, State) ->
 	NewBin = watchbin_worker_sup:create(BucketSize, Callback),
 	{reply, NewBin, State}.
