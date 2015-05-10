@@ -8,7 +8,7 @@
 
 -export([start_link/2]).
 
--export([start_timer/4, stop_timer/2, destroy/1]).
+-export([start_timer/4, stop_timer/2, start_named_timer/5, stop_named_timer/2, destroy/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
