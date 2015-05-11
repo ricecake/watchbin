@@ -33,6 +33,9 @@ start_link(BucketSize, Callback) ->
 start_timer(Worker, Interval, Data, Opts) ->
 	gen_server:call(Worker, {add, Interval, Data, Opts}).
 
+start_named_timer(Worker, Name, Interval, Data, Opts) ->
+        gen_server:call(Worker, {add_named, Name, Interval, Data, Opts}).
+
 stop_timer(Worker, TimerId) ->
 	gen_server:call(Worker, {remove, TimerId}).
 
