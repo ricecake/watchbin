@@ -8,7 +8,7 @@
 
 -export([start_link/2]).
 
--export([start_timer/4, stop_timer/2, start_named_timer/5, stop_named_timer/2, destroy/1]).
+-export([start_timer/4, stop_timer/2, destroy/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -33,9 +33,6 @@ start_link(BucketSize, Callback) ->
 start_timer(Worker, Interval, Data, Opts) ->
 	gen_server:call(Worker, {add, Interval, Data, Opts}).
 
-start_named_timer(Worker, Name, Interval, Data, Opts) ->
-        gen_server:call(Worker, {add_named, Name, Interval, Data, Opts}).
-
 stop_timer(Worker, TimerId) ->
 	gen_server:call(Worker, {remove, TimerId}).
 
@@ -59,9 +56,10 @@ handle_call({add, Interval, Data, Opts}, _From, #watchbin{container=Map, width=B
 		Jitter -> random:uniform(Interval);
 		not Jitter -> Interval
 	end,
-	NewJobs = maps:put(ID, {Interval, Data, Opts}, Jobs),
-	NewMap = add(Map, BucketSize, WaitTime, ID),
-	{reply, {ok, {watchbin_tref, ID}}, State#watchbin{container=NewMap, counter=ID+1, data=NewJobs}}.
+	JobId = proplists:get_value(name, Opts, ID),
+	NewJobs = maps:put(JobId, {Interval, Data, Opts}, Jobs),
+	NewMap = add(Map, BucketSize, WaitTime, JobId),
+	{reply, {ok, {watchbin_tref, JobId}}, State#watchbin{container=NewMap, counter=ID+1, data=NewJobs}}.
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
