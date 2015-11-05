@@ -97,7 +97,9 @@ add(Map, BucketSize, Delay, Data) ->
 process(Callback, {Interval, Data, Options}, Map, Width, Id) ->
 	OneTime = proplists:get_bool(once, Options),
 	if
-		OneTime -> Map;
+		OneTime ->
+			Callback(Data),
+			Map;
 		not OneTime ->
 			Callback(Data),
 			add(Map, Width, Interval, Id)
