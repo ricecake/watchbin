@@ -6,7 +6,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/2]).
+-export([start_link/3]).
 
 -export([start_timer/4, stop_timer/2, destroy/1]).
 
@@ -21,30 +21,34 @@
 %% Record Definitions
 %% ------------------------------------------------------------------
 
--record(watchbin, {width, callback, container=#{}, counter=0, data=#{}}).
+-record(watchbin, {width, callback, label, container=#{}, counter=0, data=#{}}).
 
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-start_link(BucketSize, Callback) ->
-    gen_server:start_link(?MODULE, #watchbin{width=BucketSize, callback=Callback}, []).
+start_link(BucketSize, Callback, Label) ->
+    gen_server:start_link(?MODULE, #watchbin{width=BucketSize, callback=Callback, label=Label}, []).
 
 start_timer(Worker, Interval, Data, Opts) ->
-	gen_server:call(Worker, {add, Interval, Data, Opts}).
+	[{Worker, Pid}] = ets:lookup(watchbin_worker_registry, Worker),
+	gen_server:call(Pid, {add, Interval, Data, Opts}).
 
 stop_timer(Worker, TimerId) ->
-	gen_server:call(Worker, {remove, TimerId}).
+	[{Worker, Pid}] = ets:lookup(watchbin_worker_registry, Worker),
+	gen_server:call(Pid, {remove, TimerId}).
 
 destroy(Worker) ->
-	gen_server:call(Worker, destroy).
+	[{Worker, Pid}] = ets:lookup(watchbin_worker_registry, Worker),
+	gen_server:call(Pid, destroy).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
-init(Args) ->
-    {ok, Args}.
+init(#watchbin{label=Label} = Args) ->
+	ets:insert(watchbin_worker_registry, {Label, self()}),
+	{ok, Args}.
 
 handle_call(destroy, _From, State) ->
 	{stop, normal, ok, State};
@@ -73,8 +77,9 @@ handle_info({tick, Timeout}, #watchbin{container=Map, width=BucketSize, callback
 	end, maps:remove(Timeout, Map), maps:get(Timeout, Map)),
 	{noreply, State#watchbin{container=NewMap}}.
 
-terminate(_Reason, _State) ->
-    ok.
+terminate(_Reason, State) ->
+	ets:delete(watchbin_worker_registry, State#watchbin.label),
+	ok.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -105,7 +110,6 @@ process(Callback, {Interval, Data, Options}, Map, Width, Id) ->
 			add(Map, Width, Interval, Id)
 	end.
 
-timestamp() -> 
+timestamp() ->
 	{Mega, Secs, Micro} = os:timestamp(),
 	Mega*1000*1000*1000 + Secs * 1000 + (Micro / 1000).
-
